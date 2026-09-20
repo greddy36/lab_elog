@@ -56,7 +56,38 @@ class LogEntry(db.Model):
 
 	equipment = db.relationship("Equipment", secondary=log_equipment, lazy="subquery")
 
+class Comment(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
 
+    text = db.Column(db.Text, nullable=False)
+
+    created_at = db.Column(
+        db.DateTime,
+        default=datetime.utcnow,
+        nullable=False
+    )
+
+    author_id = db.Column(
+        db.Integer,
+        db.ForeignKey("author.id"),
+        nullable=False
+    )
+
+    log_entry_id = db.Column(
+        db.Integer,
+        db.ForeignKey("log_entry.id"),
+        nullable=False
+    )
+
+    author = db.relationship("Author")
+    log_entry = db.relationship(
+        "LogEntry",
+        backref=db.backref(
+            "comments",
+            lazy=True,
+            cascade="all, delete-orphan"
+        )
+    )
 # -----------------------------
 # Helpers
 # -----------------------------
@@ -110,14 +141,16 @@ def index():
 	
 	if query:
 		pattern = f"%{query}%"
-		logs_query = logs_query.join(Author).filter(
-			or_(
-				LogEntry.title.ilike(pattern),
-				LogEntry.work_performed.ilike(pattern),
-				LogEntry.result.ilike(pattern),
-				LogEntry.subsystem.ilike(pattern),
-				Author.name.ilike(pattern),
-			)
+
+		logs_query = logs_query.join(Author).outerjoin(Comment).filter(
+		    or_(
+		        LogEntry.title.ilike(pattern),
+		        LogEntry.work_performed.ilike(pattern),
+		        LogEntry.result.ilike(pattern),
+		        LogEntry.subsystem.ilike(pattern),
+		        Author.name.ilike(pattern),
+		        Comment.text.ilike(pattern),
+		    )
 		).distinct()
 
 	if author_id:
@@ -195,15 +228,17 @@ def new_log():
 
 @app.route("/log/<int:log_id>")
 def view_log(log_id):
-	entry = db.session.get(LogEntry, log_id)
+    log = db.get_or_404(LogEntry, log_id)
 
-	if entry is None:
-		abort(404)
+    authors = Author.query.order_by(Author.name).all()
 
-	return render_template("view_log.html", entry=entry)
+    return render_template(
+        "view_log.html",
+        log=log,
+        authors=authors
+    )
 
-
-@app.route("/log/<int:log_id>/edit", methods=["GET", "POST"])
+'''@app.route("/log/<int:log_id>/edit", methods=["GET", "POST"])
 def edit_log(log_id):
 	entry = db.session.get(LogEntry, log_id)
 
@@ -236,7 +271,31 @@ def edit_log(log_id):
 		return redirect(url_for("view_log", log_id=entry.id))
 
 	return render_template("edit_log.html", entry=entry, error=None)
+'''
+@app.route("/log/<int:log_id>/comment", methods=["POST"])
+def add_comment(log_id):
 
+    log = db.get_or_404(LogEntry, log_id)
+
+    text = request.form.get("text", "").strip()
+    author_id = request.form.get("author_id", type=int)
+
+    if not text:
+        return redirect(url_for("view_log", log_id=log_id))
+
+    if not author_id:
+        return redirect(url_for("view_log", log_id=log_id))
+
+    comment = Comment(
+        text=text,
+        author_id=author_id,
+        log_entry_id=log.id
+    )
+
+    db.session.add(comment)
+    db.session.commit()
+
+    return redirect(url_for("view_log", log_id=log_id))
 
 # -----------------------------
 # Startup

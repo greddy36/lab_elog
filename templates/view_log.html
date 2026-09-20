@@ -2,35 +2,88 @@
 
 {% block content %}
 
-<div class="entry-header">
+<div class="log-header">
     <div>
         <div class="log-card-top">
-            <span class="type">{{ entry.log_type }}</span>
+            <span class="type">{{ log.log_type }}</span>
             
         </div>
 
-        <h1>{{ entry.title }}</h1>
+        <h1>{{ log.title }}</h1>
 
         <div class="metadata">
-            {{ entry.author.name }}
-            · {{ entry.created_at.strftime("%Y-%m-%d %H:%M") }}
-            {% if entry.subsystem %}
-                · {{ entry.subsystem }}
+            {{ log.author.name }}
+            · {{ log.created_at.strftime("%Y-%m-%d %H:%M") }}
+            {% if log.subsystem %}
+                · {{ log.subsystem }}
             {% endif %}
         </div>
     </div>
 
-    <a class="button secondary" href="{{ url_for('edit_log', log_id=entry.id) }}">Edit</a>
 </div>
 
-<section class="entry-section">
+<section class="log-section">
     <h2>Report</h2>
-    <div class="entry-text">{{ entry.result or "—" }}</div>
+    <div class="log-text">{{ log.result or "—" }}</div>
 </section>
 
-<div class="entry-footer">
-    Entry #{{ entry.id }}
-    · Last updated {{ entry.updated_at.strftime("%Y-%m-%d %H:%M") }}
-</div>
+<hr>
+
+<h2>Comments</h2>
+
+{% if log.comments %}
+    {% for comment in log.comments %}
+        <div class="comment">
+            <div class="comment-header">
+                <strong>{{ comment.author.name }}</strong>
+                <span>
+                    {{ comment.created_at.strftime("%Y-%m-%d %H:%M") }}
+                </span>
+            </div>
+
+            <div class="comment-text">
+                {{ comment.text }}
+            </div>
+        </div>
+    {% endfor %}
+{% else %}
+    <p>No comments yet.</p>
+{% endif %}
+
+
+<h3>Add Comment</h3>
+
+<form method="POST"
+      action="{{ url_for('add_comment', log_id=log.id) }}">
+
+    <div>
+        <label for="author_id">Author</label>
+
+        <select name="author_id" id="author_id" required>
+
+            {% for author in authors %}
+                <option value="{{ author.id }}">
+                    {{ author.name }}
+                </option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div>
+        <label for="text">Comment</label>
+
+        <textarea
+            name="text"
+            id="text"
+            rows="4"
+            required
+            placeholder="Add a comment..."
+        ></textarea>
+    </div>
+
+    <button type="submit">Add Comment</button>
+
+</form>
 
 {% endblock %}
+
