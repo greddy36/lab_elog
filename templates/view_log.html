@@ -56,18 +56,19 @@
 <form method="POST"
       action="{{ url_for('add_comment', log_id=log.id) }}">
 
-    <div>
-        <label for="author_id">Author</label>
+		<div>
+			<label for="author_name">Name</label>
 
-        <select name="author_id" id="author_id" required>
+		<input
+			type="text"
+			name="author_name"
+			id="author_name"
+			required
+			placeholder="Enter your name..."
+		>
 
-            {% for author in authors %}
-                <option value="{{ author.id }}">
-                    {{ author.name }}
-                </option>
-            {% endfor %}
-        </select>
-    </div>
+		</div>
+
 
     <div>
         <label for="text">Comment</label>

@@ -274,22 +274,27 @@ def edit_log(log_id):
 '''
 @app.route("/log/<int:log_id>/comment", methods=["POST"])
 def add_comment(log_id):
-
     log = db.get_or_404(LogEntry, log_id)
 
     text = request.form.get("text", "").strip()
-    author_id = request.form.get("author_id", type=int)
+    author_name = request.form.get("author_name", "").strip()
 
-    if not text:
+    if not author_name or not text:
         return redirect(url_for("view_log", log_id=log_id))
 
-    if not author_id:
-        return redirect(url_for("view_log", log_id=log_id))
+    # Find existing author
+    author = Author.query.filter_by(name=author_name).first()
+
+    # Create author if they don't exist
+    if author is None:
+        author = Author(name=author_name)
+        db.session.add(author)
+        db.session.flush()
 
     comment = Comment(
-        text=text,
-        author_id=author_id,
-        log_entry_id=log.id
+        log_entry_id=log.id,
+        author_id=author.id,
+        text=text
     )
 
     db.session.add(comment)

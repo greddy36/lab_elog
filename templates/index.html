@@ -4,7 +4,6 @@
 
 <div class="page-header">
 	<div>
-		<h1>Log book</h1>
 		<p>Search and browse the log history.</p>
 	</div>
 </div>
@@ -69,11 +68,14 @@
 		<a class="log-card" href="{{ url_for('view_log', log_id=entry.id) }}">
 			<div class="log-card-top">
 				<span class="type">{{ entry.log_type }}</span>
-				<span class="status status-{{ entry.status|lower }}">{{ entry.status }}</span>
 			</div>
 
 			<h2>{{ entry.title }}</h2>
-
+			<div>
+				{{ entry.result[:150] }}{% if entry.result|length > 150 %}...{% endif %}
+			</div> <!--truncated result-->
+			<!--<div>{{ entry.result}}</div> full result-->
+			
 			<div class="metadata">
 				{{ entry.author.name }}
 				· {{ entry.created_at.strftime("%Y-%m-%d %H:%M") }}
