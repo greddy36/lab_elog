@@ -169,26 +169,6 @@ textarea {
     font-size: 13px;
 }
 
-.tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    margin-top: 10px;
-}
-
-.tags span,
-.equipment {
-    background: #eef2f7;
-    color: #44505d;
-    border-radius: 4px;
-    padding: 4px 8px;
-    font-size: 12px;
-}
-
-.large-tags {
-    margin-bottom: 25px;
-}
-
 .log-form {
     background: white;
     border: 1px solid #dfe3e8;

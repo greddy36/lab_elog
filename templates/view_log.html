@@ -23,12 +23,6 @@
     <a class="button secondary" href="{{ url_for('edit_log', log_id=entry.id) }}">Edit</a>
 </div>
 
-<div class="tags large-tags">
-    {% for tag in entry.tags %}
-        <span>#{{ tag.name }}</span>
-    {% endfor %}
-</div>
-
 <section class="entry-section">
     <h2>Report</h2>
     <div class="entry-text">{{ entry.result or "—" }}</div>

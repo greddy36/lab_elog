@@ -3,85 +3,94 @@
 {% block content %}
 
 <div class="page-header">
-    <div>
-        <h1>Lab Work Log</h1>
-        <p>Search and browse the lab's work history.</p>
-    </div>
+	<div>
+		<h1>Lab Work Log</h1>
+		<p>Search and browse the lab's work history.</p>
+	</div>
 </div>
 
 <form class="search-panel" method="get">
-    <input
-        type="text"
-        name="q"
-        value="{{ query }}"
-        placeholder="Search logs"
-        autofocus
-    >
+	<input
+		type="text"
+		name="q"
+		value="{{ query }}"
+		placeholder="Search logs"
+		autofocus
+	>
 
-    <select name="author">
-        <option value="">Authors</option>
-        {% for author in authors %}
-            <option value="{{ author.id }}"
-                {% if selected_author == author.id %}selected{% endif %}>
-                {{ author.name }}
-            </option>
-        {% endfor %}
-    </select>
+	<select name="author">
+		<option value="">Authors</option>
+		{% for author in authors %}
+			<option value="{{ author.id }}"
+				{% if selected_author == author.id %}selected{% endif %}>
+				{{ author.name }}
+			</option>
+		{% endfor %}
+	</select>
 
-    <select name="type">
-        <option value="">Log types</option>
-        {% for value in ["Wafer test", "Auxillary electronics", "Issues with equipment", "Maintenance"] %}
-            <option value="{{ value }}"
-                {% if selected_type == value %}selected{% endif %}>
-                {{ value }}
-            </option>
-        {% endfor %}
-    </select>
+	<select name="type">
+		<option value="">Log types</option>
+		{% for value in ["Wafer test", "Auxillary electronics", "Issues with equipment", "Maintenance"] %}
+			<option value="{{ value }}"
+				{% if selected_type == value %}selected{% endif %}>
+				{{ value }}
+			</option>
+		{% endfor %}
+	</select>
+	
+	<input
+		type="date"
+		name="date_from"
+		value="{{ date_from }}"
+		title="From date"
+	>
 
-    <button type="submit">Search</button>
+	<input
+		type="date"
+		name="date_to"
+		value="{{ date_to }}"
+		title="To date"
+	>
+	
+	<button type="submit">Search</button>
 
-    {% if query or selected_author or selected_type or selected_status %}
-        <a class="clear-search" href="{{ url_for('index') }}">Clear</a>
-    {% endif %}
+	{% if query or selected_author or selected_type or selected_status %}
+		<a class="clear-search" href="{{ url_for('index') }}">Clear</a>
+	{% endif %}
 </form>
 
 <div class="results-header">
-    <strong>{{ logs|length }}</strong> entr{{ "y" if logs|length == 1 else "ies" }}
+	<strong>{{ logs|length }}</strong> entr{{ "y" if logs|length == 1 else "ies" }}
 </div>
 
 {% if logs %}
-    <div class="log-list">
-        {% for entry in logs %}
-        <a class="log-card" href="{{ url_for('view_log', log_id=entry.id) }}">
-            <div class="log-card-top">
-                <span class="type">{{ entry.log_type }}</span>
-                <span class="status status-{{ entry.status|lower }}">{{ entry.status }}</span>
-            </div>
+	<div class="log-list">
+		{% for entry in logs %}
+		<a class="log-card" href="{{ url_for('view_log', log_id=entry.id) }}">
+			<div class="log-card-top">
+				<span class="type">{{ entry.log_type }}</span>
+				<span class="status status-{{ entry.status|lower }}">{{ entry.status }}</span>
+			</div>
 
-            <h2>{{ entry.title }}</h2>
+			<h2>{{ entry.title }}</h2>
 
-            <div class="metadata">
-                {{ entry.author.name }}
-                · {{ entry.created_at.strftime("%Y-%m-%d %H:%M") }}
-                {% if entry.subsystem %}
-                    · {{ entry.subsystem }}
-                {% endif %}
-            </div>
+			<div class="metadata">
+				{{ entry.author.name }}
+				· {{ entry.created_at.strftime("%Y-%m-%d %H:%M") }}
+				{% if entry.subsystem %}
+					· {{ entry.subsystem }}
+				{% endif %}
+			</div>
 
-            <div class="tags">
-                {% for tag in entry.tags %}
-                    <span>#{{ tag.name }}</span>
-                {% endfor %}
-            </div>
-        </a>
-        {% endfor %}
-    </div>
+		</a>
+		{% endfor %}
+	</div>
 {% else %}
-    <div class="empty">
-        <h2>No logs found</h2>
-        <p>Try a different search or create the first entry.</p>
-        <a class="button" href="{{ url_for('new_log') }}">Create Log</a>
-    </div>
+	<div class="empty">
+		<h2>No logs found</h2>
+		<p>Try a different search or create the first entry.</p>
+		<a class="button" href="{{ url_for('new_log') }}">Create Log</a>
+	</div>
 {% endif %}
 
 {% endblock %}
