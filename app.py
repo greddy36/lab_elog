@@ -26,12 +26,23 @@ class Tag(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(80), nullable=False, unique=True)
 
+
+class Equipment(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(150), nullable=False, unique=True)
+
+
 log_tags = db.Table(
     "log_tags",
     db.Column("log_id", db.Integer, db.ForeignKey("log_entry.id"), primary_key=True),
     db.Column("tag_id", db.Integer, db.ForeignKey("tag.id"), primary_key=True),
 )
 
+log_equipment = db.Table(
+    "log_equipment",
+    db.Column("log_id", db.Integer, db.ForeignKey("log_entry.id"), primary_key=True),
+    db.Column("equipment_id", db.Integer, db.ForeignKey("equipment.id"), primary_key=True),
+)
 
 
 class LogEntry(db.Model):
@@ -39,7 +50,12 @@ class LogEntry(db.Model):
     title = db.Column(db.String(250), nullable=False)
     log_type = db.Column(db.String(50), nullable=False, default="Work")
     subsystem = db.Column(db.String(100), nullable=True)
+    status = db.Column(db.String(50), nullable=False, default="Open")
+
+    description = db.Column(db.Text, nullable=True)
+    work_performed = db.Column(db.Text, nullable=True)
     result = db.Column(db.Text, nullable=True)
+    next_action = db.Column(db.Text, nullable=True)
 
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.now)
     updated_at = db.Column(
@@ -49,9 +65,12 @@ class LogEntry(db.Model):
     author_id = db.Column(db.Integer, db.ForeignKey("author.id"), nullable=False)
 
     tags = db.relationship("Tag", secondary=log_tags, lazy="subquery")
+    equipment = db.relationship("Equipment", secondary=log_equipment, lazy="subquery")
 
 
-#----------------------Helpers------------------------------------------
+# -----------------------------
+# Helpers
+# -----------------------------
 
 def get_or_create_author(name):
     name = name.strip()
@@ -85,13 +104,35 @@ def get_or_create_tags(tag_string):
     return tags
 
 
-#-----------------Routes----------------------------
+def get_or_create_equipment(equipment_string):
+    equipment = []
+
+    for raw in equipment_string.split(","):
+        name = raw.strip()
+        if not name:
+            continue
+
+        item = Equipment.query.filter_by(name=name).first()
+        if not item:
+            item = Equipment(name=name)
+            db.session.add(item)
+            db.session.flush()
+
+        equipment.append(item)
+
+    return equipment
+
+
+# -----------------------------
+# Routes
+# -----------------------------
 
 @app.route("/")
 def index():
     query = request.args.get("q", "").strip()
     author_id = request.args.get("author", type=int)
     log_type = request.args.get("type", "").strip()
+    status = request.args.get("status", "").strip()
 
     logs_query = LogEntry.query
 
@@ -100,7 +141,10 @@ def index():
         logs_query = logs_query.join(Author).outerjoin(LogEntry.tags).filter(
             or_(
                 LogEntry.title.ilike(pattern),
+                LogEntry.description.ilike(pattern),
+                LogEntry.work_performed.ilike(pattern),
                 LogEntry.result.ilike(pattern),
+                LogEntry.next_action.ilike(pattern),
                 LogEntry.subsystem.ilike(pattern),
                 Author.name.ilike(pattern),
                 Tag.name.ilike(pattern),
@@ -113,6 +157,8 @@ def index():
     if log_type:
         logs_query = logs_query.filter(LogEntry.log_type == log_type)
 
+    if status:
+        logs_query = logs_query.filter(LogEntry.status == status)
 
     logs = logs_query.order_by(desc(LogEntry.created_at)).all()
 
@@ -125,6 +171,7 @@ def index():
         query=query,
         selected_author=author_id,
         selected_type=log_type,
+        selected_status=status,
     )
 
 
@@ -145,7 +192,11 @@ def new_log():
             title=request.form.get("title", "").strip(),
             log_type=request.form.get("log_type", "Work"),
             subsystem=request.form.get("subsystem", "").strip(),
+            status=request.form.get("status", "Open"),
+            description=request.form.get("description", "").strip(),
+            work_performed=request.form.get("work_performed", "").strip(),
             result=request.form.get("result", "").strip(),
+            next_action=request.form.get("next_action", "").strip(),
             author=author,
         )
 
@@ -156,6 +207,9 @@ def new_log():
             )
 
         entry.tags = get_or_create_tags(request.form.get("tags", ""))
+        entry.equipment = get_or_create_equipment(
+            request.form.get("equipment", "")
+        )
 
         db.session.add(entry)
         db.session.commit()
@@ -195,10 +249,17 @@ def edit_log(log_id):
         entry.title = request.form.get("title", "").strip()
         entry.log_type = request.form.get("log_type", "Work")
         entry.subsystem = request.form.get("subsystem", "").strip()
+        entry.status = request.form.get("status", "Open")
+        entry.description = request.form.get("description", "").strip()
+        entry.work_performed = request.form.get("work_performed", "").strip()
         entry.result = request.form.get("result", "").strip()
+        entry.next_action = request.form.get("next_action", "").strip()
         entry.author = author
 
         entry.tags = get_or_create_tags(request.form.get("tags", ""))
+        entry.equipment = get_or_create_equipment(
+            request.form.get("equipment", "")
+        )
 
         db.session.commit()
 
@@ -207,7 +268,9 @@ def edit_log(log_id):
     return render_template("edit_log.html", entry=entry, error=None)
 
 
-#-----------Startup----------------------------------------
+# -----------------------------
+# Startup
+# -----------------------------
 
 with app.app_context():
     db.create_all()
