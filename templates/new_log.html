@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="page-header">
+    <div>
+        <h1>New Log Entry</h1>
+        <p>Record work, tests, issues, maintenance, or configuration changes.</p>
+    </div>
+</div>
+
+{% if error %}
+<div class="error">{{ error }}</div>
+{% endif %}
+
+<form class="log-form" method="post">
+
+    <div class="form-grid">
+        <label>
+            Title *
+            <input name="title" required placeholder="e.g. Wafer broken or something">
+        </label>
+
+        <label>
+            Author *
+            <input name="author" required placeholder="Your name">
+        </label>
+
+        <label>
+            Work Type
+            <select name="log_type">
+                {% for value in ["Wafer test", "Auxillary electronics", "Issues with equipment", "Maintenance"] %}
+                    <option value="{{ value }}">{{ value }}</option>
+                {% endfor %}
+            </select>
+        </label>
+
+        <label>
+            Subsystem
+            <input name="subsystem" placeholder="e.g. Pixel DAQ">
+        </label>
+
+        <label class="full">
+            Tags
+            <input name="tags" placeholder="Comma separated: FC7, wafer, firmware, microscope">
+        </label>
+    </div>
+
+    <label>
+        Report
+        <textarea name="result" rows="6"
+            placeholder="What happened? Did the problem get resolved?"></textarea>
+    </label>
+
+
+    <div class="form-actions">
+        <button type="submit">Save Log</button>
+        <a href="{{ url_for('index') }}">Cancel</a>
+    </div>
+
+</form>
+
+{% endblock %}
