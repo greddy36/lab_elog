@@ -12,7 +12,7 @@
         <h1>{{ log.title }}</h1>
 
         <div class="metadata">
-            {{ log.author.name }}
+            <strong>{{ log.author.name }}</strong>
             · {{ log.created_at.strftime("%Y-%m-%d %H:%M") }}
             {% if log.subsystem %}
                 · {{ log.subsystem }}
@@ -23,56 +23,58 @@
 </div>
 
 <section class="log-section">
-    <h2>Report</h2>
+    
     <div class="log-text">{{ log.result or "—" }}</div>
 </section>
 
 <hr>
 
-<h2>Comments</h2>
-
 {% if log.comments %}
     {% for comment in log.comments %}
         <div class="comment">
-            <div class="comment-header">
+            <div class="metadata">
                 <strong>{{ comment.author.name }}</strong>
+     
                 <span>
                     {{ comment.created_at.strftime("%Y-%m-%d %H:%M") }}
                 </span>
             </div>
-
             <div class="comment-text">
                 {{ comment.text }}
             </div>
+            {% if comment.attachment_filename %}
+				<div class="comment-attachment">
+					📎
+					<a href="{{ url_for('download_comment_attachment', comment_id=comment.id) }}">
+					{{ comment.attachment_filename }}
+					</a>
+				</div>
+			{% endif %}
         </div>
+		<hr>
     {% endfor %}
-{% else %}
-    <p>No comments yet.</p>
 {% endif %}
 
 
 <h3>Add Comment</h3>
 
 <form method="POST"
-      action="{{ url_for('add_comment', log_id=log.id) }}">
+      action="{{ url_for('add_comment', log_id=log.id) }}"
+      enctype="multipart/form-data">
 
-		<div>
-			<label for="author_name">Name</label>
-
-		<input
-			type="text"
-			name="author_name"
-			id="author_name"
-			required
-			placeholder="Enter your name..."
-		>
-
-		</div>
-
+    <div>
+        <label for="author_name">Name</label>
+        <input
+            type="text"
+            name="author_name"
+            id="author_name"
+            required
+            placeholder="Enter your name..."
+        >
+    </div>
 
     <div>
         <label for="text">Comment</label>
-
         <textarea
             name="text"
             id="text"
@@ -82,54 +84,16 @@
         ></textarea>
     </div>
 
-    <button type="submit">Add Comment</button>
-
-</form>
-
-<h2>Attachments</h2>
-
-{% if log.attachments %}
-
-
-{% for attachment in log.attachments %}
-
-    <div class="attachment">
- 
-        <a href="{{ url_for('download_attachment', attachment_id=attachment.id) }}">
-            {{ attachment.filename }}
-        </a>
-
-        <span>
-            · {{ attachment.uploaded_at.strftime("%Y-%m-%d %H:%M") }}
-        </span>
+    <div>
+        <label for="file">Attachment (optional)</label>
+        <input
+            type="file"
+            name="file"
+            id="file"
+        >
     </div>
 
-{% endfor %}
-
-
-{% else %}
-
-
-<p>No attachments yet.</p>
-
-
-{% endif %}
-
-<h3>Add Attachment</h3>
-
-<form method="POST"
-      action="{{ url_for('upload_attachment', log_id=log.id) }}"
-      enctype="multipart/form-data">
-
-
-<input
-    type="file"
-    name="file"
-    required
->
-
-<button type="submit">Upload</button>
-
+    <button type="submit">Add Comment</button>
 
 </form>
 

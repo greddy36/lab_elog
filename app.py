@@ -61,7 +61,10 @@ class Comment(db.Model):
         db.ForeignKey("log_entry.id"),
         nullable=False
     )
-
+    # Attachment
+    attachment_filename = db.Column(db.String(255), nullable=True)
+    attachment_stored_filename = db.Column(db.String(255), nullable=True)
+    
     author = db.relationship("Author")
     log_entry = db.relationship(
         "LogEntry",
@@ -228,28 +231,57 @@ def view_log(log_id):
 
 @app.route("/log/<int:log_id>/comment", methods=["POST"])
 def add_comment(log_id):
+
     log = db.get_or_404(LogEntry, log_id)
 
-    text = request.form.get("text", "").strip()
     author_name = request.form.get("author_name", "").strip()
+    text = request.form.get("text", "").strip()
+
+    file = request.files.get("file")
 
     if not author_name or not text:
         return redirect(url_for("view_log", log_id=log_id))
 
-    # Find existing author
+    # Find existing author or create a new one
     author = Author.query.filter_by(name=author_name).first()
 
-    # Create author if they don't exist
-    if author is None:
+    if not author:
         author = Author(name=author_name)
         db.session.add(author)
         db.session.flush()
 
+    # Create comment
     comment = Comment(
-        log_entry_id=log.id,
+        text=text,
         author_id=author.id,
-        text=text
+        log_entry_id=log.id
     )
+
+    # Handle optional attachment
+    if file and file.filename != "":
+
+        original_filename = file.filename
+        safe_filename = secure_filename(original_filename)
+
+        stored_filename = f"{uuid.uuid4().hex}_{safe_filename}"
+
+        # Store comment attachments inside the log's folder
+        log_folder = os.path.join(
+            UPLOAD_FOLDER,
+            str(log_id)
+        )
+
+        os.makedirs(log_folder, exist_ok=True)
+
+        file.save(
+            os.path.join(
+                log_folder,
+                stored_filename
+            )
+        )
+
+        comment.attachment_filename = original_filename
+        comment.attachment_stored_filename = stored_filename
 
     db.session.add(comment)
     db.session.commit()
@@ -302,22 +334,26 @@ def upload_attachment(log_id):
 
 	return redirect(url_for("view_log", log_id=log_id))
 
+@app.route("/comment/<int:comment_id>/attachment")
+def download_comment_attachment(comment_id):
 
-@app.route("/attachment/<int:attachment_id>")
-def download_attachment(attachment_id):
-	attachment = db.get_or_404(Attachment,attachment_id)
+    comment = db.get_or_404(Comment, comment_id)
 
-	directory = os.path.join(
-		UPLOAD_FOLDER,
-		str(attachment.log_entry_id)
-	)
+    if not comment.attachment_stored_filename:
+        return redirect(
+            url_for("view_log", log_id=comment.log_entry_id)
+        )
 
-	return send_from_directory(
-		directory,
-		attachment.stored_filename,
-		download_name=attachment.filename
-	)
+    directory = os.path.join(
+        UPLOAD_FOLDER,
+        str(comment.log_entry_id)
+    )
 
+    return send_from_directory(
+        directory,
+        comment.attachment_stored_filename,
+        download_name=comment.attachment_filename
+    )
 # -----------------------------
 # Startup
 # -----------------------------
