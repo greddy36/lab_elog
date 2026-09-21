@@ -1,8 +1,10 @@
-from flask import Flask, render_template, request, redirect, url_for, abort
+from flask import Flask, render_template, request, redirect, url_for, abort, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import or_, desc
 from datetime import datetime
 import os
+import uuid
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///lab_elog.db"
@@ -21,23 +23,6 @@ class Author(db.Model):
 
 	logs = db.relationship("LogEntry", backref="author", lazy=True)
 
-
-class Tag(db.Model):
-	id = db.Column(db.Integer, primary_key=True)
-	name = db.Column(db.String(80), nullable=False, unique=True)
-
-
-class Equipment(db.Model):
-	id = db.Column(db.Integer, primary_key=True)
-	name = db.Column(db.String(150), nullable=False, unique=True)
-
-log_equipment = db.Table(
-	"log_equipment",
-	db.Column("log_id", db.Integer, db.ForeignKey("log_entry.id"), primary_key=True),
-	db.Column("equipment_id", db.Integer, db.ForeignKey("equipment.id"), primary_key=True),
-)
-
-
 class LogEntry(db.Model):
 	id = db.Column(db.Integer, primary_key=True)
 	title = db.Column(db.String(250), nullable=False)
@@ -53,8 +38,6 @@ class LogEntry(db.Model):
 	)
 
 	author_id = db.Column(db.Integer, db.ForeignKey("author.id"), nullable=False)
-
-	equipment = db.relationship("Equipment", secondary=log_equipment, lazy="subquery")
 
 class Comment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -88,6 +71,34 @@ class Comment(db.Model):
             cascade="all, delete-orphan"
         )
     )
+
+class Attachment(db.Model):
+	id = db.Column(db.Integer, primary_key=True)
+
+	filename = db.Column(db.String(255), nullable=False)
+	stored_filename = db.Column(db.String(255), nullable=False)
+
+	uploaded_at = db.Column(
+		db.DateTime,
+		default=datetime.utcnow,
+		nullable=False
+	)
+
+	log_entry_id = db.Column(
+		db.Integer,
+		db.ForeignKey("log_entry.id"),
+		nullable=False
+	)
+
+	log_entry = db.relationship(
+		"LogEntry",
+		backref=db.backref(
+		    "attachments",
+		    lazy=True,
+		    cascade="all, delete-orphan"
+		)
+)
+
 # -----------------------------
 # Helpers
 # -----------------------------
@@ -103,26 +114,6 @@ def get_or_create_author(name):
 		db.session.add(author)
 		db.session.flush()
 	return author
-
-
-def get_or_create_equipment(equipment_string):
-	equipment = []
-
-	for raw in equipment_string.split(","):
-		name = raw.strip()
-		if not name:
-			continue
-
-		item = Equipment.query.filter_by(name=name).first()
-		if not item:
-			item = Equipment(name=name)
-			db.session.add(item)
-			db.session.flush()
-
-		equipment.append(item)
-
-	return equipment
-
 
 # -----------------------------
 # Routes
@@ -214,9 +205,6 @@ def new_log():
 				error="Title is required."
 			)
 
-		entry.equipment = get_or_create_equipment(
-			request.form.get("equipment", "")
-		)
 
 		db.session.add(entry)
 		db.session.commit()
@@ -238,40 +226,6 @@ def view_log(log_id):
         authors=authors
     )
 
-'''@app.route("/log/<int:log_id>/edit", methods=["GET", "POST"])
-def edit_log(log_id):
-	entry = db.session.get(LogEntry, log_id)
-
-	if entry is None:
-		abort(404)
-
-	if request.method == "POST":
-		author = get_or_create_author(request.form.get("author", ""))
-
-		if not author:
-			return render_template(
-				"edit_log.html",
-				entry=entry,
-				error="Author is required."
-			)
-
-		entry.title = request.form.get("title", "").strip()
-		entry.log_type = request.form.get("log_type", "Work")
-		entry.subsystem = request.form.get("subsystem", "").strip()
-		entry.work_performed = request.form.get("work_performed", "").strip()
-		entry.result = request.form.get("result", "").strip()
-		entry.author = author
-
-		entry.equipment = get_or_create_equipment(
-			request.form.get("equipment", "")
-		)
-
-		db.session.commit()
-
-		return redirect(url_for("view_log", log_id=entry.id))
-
-	return render_template("edit_log.html", entry=entry, error=None)
-'''
 @app.route("/log/<int:log_id>/comment", methods=["POST"])
 def add_comment(log_id):
     log = db.get_or_404(LogEntry, log_id)
@@ -301,6 +255,68 @@ def add_comment(log_id):
     db.session.commit()
 
     return redirect(url_for("view_log", log_id=log_id))
+
+UPLOAD_FOLDER = os.path.join(
+os.path.dirname(os.path.abspath(__file__)),
+"uploads"
+)
+
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+@app.route("/log/<int:log_id>/attachment", methods=["POST"])
+def upload_attachment(log_id):
+
+	log = db.get_or_404(LogEntry, log_id)
+
+	file = request.files.get("file")
+
+	if not file or file.filename == "":
+		return redirect(url_for("view_log", log_id=log_id))
+
+	original_filename = file.filename
+	safe_filename = secure_filename(original_filename)
+
+	# Give the stored file a unique name
+	stored_filename = f"{uuid.uuid4().hex}_{safe_filename}"
+
+	# Keep attachments organized by log entry
+	log_folder = os.path.join(
+		UPLOAD_FOLDER,
+		str(log_id)
+	)
+
+	os.makedirs(log_folder, exist_ok=True)
+
+	file.save(
+		os.path.join(log_folder, stored_filename)
+	)
+
+	attachment = Attachment(
+		filename=original_filename,
+		stored_filename=stored_filename,
+		log_entry_id=log.id
+	)
+
+	db.session.add(attachment)
+	db.session.commit()
+
+	return redirect(url_for("view_log", log_id=log_id))
+
+
+@app.route("/attachment/<int:attachment_id>")
+def download_attachment(attachment_id):
+	attachment = db.get_or_404(Attachment,attachment_id)
+
+	directory = os.path.join(
+		UPLOAD_FOLDER,
+		str(attachment.log_entry_id)
+	)
+
+	return send_from_directory(
+		directory,
+		attachment.stored_filename,
+		download_name=attachment.filename
+	)
 
 # -----------------------------
 # Startup
