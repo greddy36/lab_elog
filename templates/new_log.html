@@ -13,7 +13,7 @@
 <div class="error">{{ error }}</div>
 {% endif %}
 
-<form class="log-form" method="post">
+<form method="POST" enctype="multipart/form-data">
 
     <div class="form-grid">
         <label>
@@ -48,12 +48,15 @@
             placeholder="What happened? Any issues or something worth noting?"></textarea>
     </label>
 
+	<div>
+		<label for="file">Attachment (optional)</label>
+		<input type="file" name="file" id="file">
+	</div>
 
     <div class="form-actions">
         <button type="submit">Save Log</button>
         <a href="{{ url_for('index') }}">Cancel</a>
     </div>
-
 </form>
 
 {% endblock %}

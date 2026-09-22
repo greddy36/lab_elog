@@ -29,7 +29,6 @@ class LogEntry(db.Model):
 	log_type = db.Column(db.String(50), nullable=False, default="Work")
 	subsystem = db.Column(db.String(100), nullable=True)
 
-	work_performed = db.Column(db.Text, nullable=True)
 	result = db.Column(db.Text, nullable=True)
 
 	created_at = db.Column(db.DateTime, nullable=False, default=datetime.now)
@@ -139,7 +138,6 @@ def index():
 		logs_query = logs_query.join(Author).outerjoin(Comment).filter(
 		    or_(
 		        LogEntry.title.ilike(pattern),
-		        LogEntry.work_performed.ilike(pattern),
 		        LogEntry.result.ilike(pattern),
 		        LogEntry.subsystem.ilike(pattern),
 		        Author.name.ilike(pattern),
@@ -197,7 +195,6 @@ def new_log():
 			title=request.form.get("title", "").strip(),
 			log_type=request.form.get("log_type", "Work"),
 			subsystem=request.form.get("subsystem", "").strip(),
-			work_performed=request.form.get("work_performed", "").strip(),
 			result=request.form.get("result", "").strip(),
 			author=author,
 		)
@@ -210,8 +207,29 @@ def new_log():
 
 
 		db.session.add(entry)
-		db.session.commit()
+		db.session.flush()
+		# Handle optional attachment
+		file = request.files.get("file")
 
+		if file and file.filename != "":
+			original_filename = file.filename
+			safe_filename = secure_filename(original_filename)
+
+			stored_filename = f"{uuid.uuid4().hex}_{safe_filename}"
+
+			log_folder = os.path.join( UPLOAD_FOLDER, str(entry.id))
+
+			os.makedirs(log_folder, exist_ok=True)
+
+			file.save( os.path.join(log_folder,stored_filename))
+
+			attachment = Attachment(
+				filename=original_filename,
+				stored_filename=stored_filename,
+				log_entry_id=entry.id
+			)
+			db.session.add(attachment)
+		db.session.commit()
 		return redirect(url_for("view_log", log_id=entry.id))
 
 	return render_template("new_log.html", error=None)
@@ -334,15 +352,26 @@ def upload_attachment(log_id):
 
 	return redirect(url_for("view_log", log_id=log_id))
 
-@app.route("/comment/<int:comment_id>/attachment")
+@app.route("/attachment/<int:attachment_id>")
+def download_attachment(attachment_id):
+
+    attachment = db.get_or_404(Attachment,attachment_id)
+
+    directory = os.path.join(UPLOAD_FOLDER,str(attachment.log_entry_id))
+
+    return send_from_directory(
+        directory,
+        attachment.stored_filename,
+        download_name=attachment.filename
+    )
+
+@app.route("/comment/<int:comment_id>/attachment")#could be merged with the above route
 def download_comment_attachment(comment_id):
 
     comment = db.get_or_404(Comment, comment_id)
 
     if not comment.attachment_stored_filename:
-        return redirect(
-            url_for("view_log", log_id=comment.log_entry_id)
-        )
+        return redirect(url_for("view_log", log_id=comment.log_entry_id))
 
     directory = os.path.join(
         UPLOAD_FOLDER,

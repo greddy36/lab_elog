@@ -23,9 +23,21 @@
 </div>
 
 <section class="log-section">
-    
     <div class="log-text">{{ log.result or "—" }}</div>
 </section>
+
+{% if log.attachments %}
+    <div class="attachments">
+        {% for attachment in log.attachments %}
+            <div class="attachment">
+                📎
+                <a href="{{ url_for('download_attachment', attachment_id=attachment.id) }}">
+                    {{ attachment.filename }}
+                </a>
+            </div>
+        {% endfor %}
+    </div>
+{% endif %}
 
 <hr>
 

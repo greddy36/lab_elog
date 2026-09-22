@@ -161,9 +161,15 @@ textarea {
     gap: 10px;
 }
 
-.type,
-
-
+.type {
+    display: inline-block;
+    padding: 4px 9px;
+    border-radius: 5px;
+    background: #ede9fe;
+    color: #512888;
+    font-size: 12px;
+    font-weight: 600;
+}
 .metadata {
     color: #69727d;
     font-size: 13px;
